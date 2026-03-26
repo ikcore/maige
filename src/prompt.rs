@@ -16,6 +16,7 @@ pub fn prompt_realm(realm: Option<String>) -> Result<String> {
 
     let selection = Select::new()
         .with_prompt("Select a realm")
+        .default(0)
         .items(&realms)
         .interact()?;
 
