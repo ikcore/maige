@@ -63,6 +63,20 @@ pub enum Commands {
         json: bool,
     },
 
+    /// Convert a .env file into a .env.maige file (imports values into a realm)
+    Convert {
+        /// Path to .env file
+        file: String,
+
+        /// Target realm
+        #[arg(short, long)]
+        realm: Option<String>,
+
+        /// Delete the original .env file after conversion
+        #[arg(long)]
+        delete: bool,
+    },
+
     /// Validate that all maige() references in .env.maige can be resolved
     Check,
 
