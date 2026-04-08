@@ -50,6 +50,18 @@ pub enum Commands {
         /// Target realm
         #[arg(short, long)]
         realm: Option<String>,
+
+        /// Require realm to already exist (don't create it)
+        #[arg(long)]
+        require_existing: bool,
+
+        /// Generate .env.maige file with maige() references
+        #[arg(long)]
+        convert: bool,
+
+        /// Delete the original file after import
+        #[arg(long)]
+        delete: bool,
     },
 
     /// Export realm variables to stdout in .env format
@@ -61,20 +73,6 @@ pub enum Commands {
         /// Output as JSON instead of .env format
         #[arg(long)]
         json: bool,
-    },
-
-    /// Convert a .env file into a .env.maige file (imports values into a realm)
-    Convert {
-        /// Path to .env file
-        file: String,
-
-        /// Target realm
-        #[arg(short, long)]
-        realm: Option<String>,
-
-        /// Delete the original .env file after conversion
-        #[arg(long)]
-        delete: bool,
     },
 
     /// Validate that all maige() references in .env.maige can be resolved

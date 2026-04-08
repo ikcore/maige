@@ -14,8 +14,7 @@ pub fn run_command(cmd: Commands, passphrase: Option<String>) -> Result<()> {
         Commands::Var(sub) => cmd_var(sub, &passphrase),
         Commands::Run { realm, cmd } => cmd_run(realm, cmd, &passphrase),
         Commands::Shell { realm } => cmd_shell(realm, &passphrase),
-        Commands::Import { file, realm } => cmd_import(file, realm, &passphrase),
-        Commands::Convert { file, realm, delete } => cmd_convert(file, realm, delete, &passphrase),
+        Commands::Import { file, realm, require_existing, convert, delete } => cmd_import(file, realm, require_existing, convert, delete, &passphrase),
         Commands::Export { realm, json } => cmd_export(realm, json, &passphrase),
         Commands::Check => cmd_check(&passphrase),
         Commands::Diff { realm1, realm2 } => cmd_diff(realm1, realm2, &passphrase),
@@ -239,7 +238,7 @@ fn collect_vars(realm: Option<String>, pre_pass: &Option<String>) -> Result<BTre
 
 // --- Import ---
 
-fn cmd_import(file: String, realm: Option<String>, pre_pass: &Option<String>) -> Result<()> {
+fn cmd_import(file: String, realm: Option<String>, require_existing: bool, convert: bool, delete: bool, pre_pass: &Option<String>) -> Result<()> {
     require_init()?;
     let realm = prompt::prompt_realm(realm)?;
     let passphrase = get_passphrase(pre_pass)?;
@@ -256,75 +255,50 @@ fn cmd_import(file: String, realm: Option<String>, pre_pass: &Option<String>) ->
     let mut vars = match store::load_realm(&realm, &passphrase) {
         Ok(v) => v,
         Err(_) => {
-            // Create realm if it doesn't exist
+            if require_existing {
+                bail!("Realm '{}' does not exist (use without --require-existing to create it)", realm);
+            }
             BTreeMap::new()
         }
     };
 
     let count = imported.len();
-    vars.extend(imported);
+    vars.extend(imported.clone());
     store::save_realm(&realm, &vars, &passphrase)?;
     println!("Imported {} variables into realm '{}'.", count, realm);
-    Ok(())
-}
 
-// --- Convert ---
-
-fn cmd_convert(file: String, realm: Option<String>, delete: bool, pre_pass: &Option<String>) -> Result<()> {
-    require_init()?;
-    let realm = prompt::prompt_realm(realm)?;
-    let passphrase = get_passphrase(pre_pass)?;
-
-    let content = std::fs::read_to_string(&file)
-        .map_err(|e| anyhow::anyhow!("Failed to read '{}': {}", file, e))?;
-    let parsed = store::parse_env(&content);
-
-    if parsed.is_empty() {
-        println!("No variables found in '{}'.", file);
-        return Ok(());
-    }
-
-    // Import variables into the realm
-    let mut vars = match store::load_realm(&realm, &passphrase) {
-        Ok(v) => v,
-        Err(_) => BTreeMap::new(),
-    };
-    let count = parsed.len();
-    vars.extend(parsed.clone());
-    store::save_realm(&realm, &vars, &passphrase)?;
-
-    // Build .env.maige content, preserving comments and blank lines
-    let mut maige_lines = Vec::new();
-    for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            maige_lines.push(line.to_string());
-            continue;
-        }
-        if let Some((key, _)) = trimmed.split_once('=') {
-            let key = key.trim();
-            if !key.is_empty() && parsed.contains_key(key) {
-                maige_lines.push(format!("{}=maige(\"var:/{}/{}\")", key, realm, key));
+    // If --convert flag set, generate .env.maige file
+    if convert {
+        let mut maige_lines = Vec::new();
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                maige_lines.push(line.to_string());
                 continue;
             }
+            if let Some((key, _)) = trimmed.split_once('=') {
+                let key = key.trim();
+                if !key.is_empty() && imported.contains_key(key) {
+                    maige_lines.push(format!("{}=maige(\"var:/{}/{}\")", key, realm, key));
+                    continue;
+                }
+            }
+            maige_lines.push(line.to_string());
         }
-        maige_lines.push(line.to_string());
+
+        let src_path = std::path::Path::new(&file);
+        let maige_path = src_path.with_file_name(
+            format!("{}.maige", src_path.file_name().unwrap_or_default().to_string_lossy()),
+        );
+        std::fs::write(&maige_path, maige_lines.join("\n") + "\n")
+            .map_err(|e| anyhow::anyhow!("Failed to write '{}': {}", maige_path.display(), e))?;
+        println!("Created {}", maige_path.display());
     }
-
-    let src_path = std::path::Path::new(&file);
-    let maige_path = src_path.with_file_name(
-        format!("{}.maige", src_path.file_name().unwrap_or_default().to_string_lossy()),
-    );
-    std::fs::write(&maige_path, maige_lines.join("\n") + "\n")
-        .map_err(|e| anyhow::anyhow!("Failed to write '{}': {}", maige_path.display(), e))?;
-
-    println!("Converted {} variables into realm '{}'.", count, realm);
-    println!("Created {}", maige_path.display());
 
     if delete {
         std::fs::remove_file(&file)
             .map_err(|e| anyhow::anyhow!("Failed to delete '{}': {}", file, e))?;
-        println!("Deleted original file '{}'.", file);
+        println!("Deleted '{}'.", file);
     }
 
     Ok(())

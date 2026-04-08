@@ -9,6 +9,12 @@ Cross-platform: works on macOS, Linux, and Windows.
 ## Install
 
 ```
+cargo install maige
+```
+
+Or from source:
+
+```
 cargo install --path .
 ```
 
@@ -82,7 +88,7 @@ maige -p "my-passphrase" run --realm dev -- npm start
 Or set the `MAIGE_PASSPHRASE` environment variable:
 
 ```bash
-Col
+export MAIGE_PASSPHRASE="my-passphrase"
 maige run --realm dev -- npm start
 ```
 
@@ -92,7 +98,11 @@ The flag works with every subcommand. Priority: `--passphrase` flag > `MAIGE_PAS
 
 | Command | Description |
 |---------|-------------|
-| `maige import <file> --realm <name>` | Import variables from a `.env` file into a realm |
+| `maige import <file> --realm <name>` | Import variables from a `.env` file into a realm (creates realm if missing) |
+| `maige import <file> --realm <name> --require-existing` | Import variables into an existing realm (errors if realm missing) |
+| `maige import <file> --realm <name> --convert` | Import variables and generate `.env.maige` file with `maige()` references |
+| `maige import <file> --realm <name> --delete` | Import variables and delete the original file after |
+| `maige import <file> --realm <name> --convert --delete` | Import, generate `.env.maige`, and delete the original |
 | `maige export --realm <name>` | Export realm variables to stdout in `.env` format |
 | `maige export --realm <name> --json` | Export as JSON |
 
@@ -117,6 +127,24 @@ DB_PASSWORD=maige("var:/prod/DB_PASSWORD")
 When you run `maige run -- <cmd>` without `--realm`, maige searches up the directory tree for a `.env.maige` file and resolves all references.
 
 Use `maige check` to validate that all references point to existing realms and variables.
+
+### Converting .env files to .env.maige
+
+To convert an existing `.env` file into a `.env.maige` file:
+
+```bash
+# Import variables from .env into 'prod' realm and generate .env.maige
+maige import .env --realm prod --convert
+
+# With --delete to remove the original .env file
+maige import .env --realm prod --convert --delete
+```
+
+This will:
+1. Import all variables from `.env` into the realm (encrypted)
+2. Create `.env.maige` with each variable replaced by `KEY=maige("var:/realm/KEY")`
+3. Preserve comments and blank lines from the original `.env`
+4. Optionally delete the original `.env` file
 
 ## Security
 

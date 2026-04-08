@@ -2,8 +2,16 @@
 name = "maige"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.70"
 description = "A CLI tool for securely managing and injecting environment variables and secrets"
-license = "MIT"
+license = "AGPL-3.0-only"
+authors = ["Ian Knowles"]
+repository = "https://github.com/ikcore/maige"
+homepage = "https://github.com/ikcore/maige"
+readme = "README.md"
+keywords = ["env", "secrets", "encryption", "cli", "environment"]
+categories = ["command-line-utilities", "cryptography"]
+exclude = [".claude/", "CLAUDE.md", "tests/"]
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
