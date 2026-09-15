@@ -8,6 +8,8 @@ Cross-platform: works on macOS, Linux, and Windows.
 
 ## Install
 
+Requires Rust 1.85 or newer when installing from source.
+
 ```
 cargo install maige
 ```
@@ -161,10 +163,39 @@ This will:
 ~/.maige/
   .verify           # Encrypted verification token
   .gitignore        # Prevents accidental git commits
+  .lock             # Store lock; automatically released when a process exits
+  .rotation.json    # Encrypted snapshots; present only during rotation/recovery
   realms/
     dev.realm       # Encrypted variable file
     prod.realm      # Encrypted variable file
 ```
+
+## Safe Writes and Rotation Recovery
+
+Realm files, the verification token, and generated `.env.maige` files are saved
+through a temporary file in the same directory. Maige flushes the new contents
+before replacing the destination, so a failed write does not truncate the
+existing file. Unix directory updates are synchronized; Windows replacements
+use a write-through move. Durability still depends on the filesystem and storage
+hardware honoring these operations.
+
+`maige key:rotate` stages and verifies every re-encrypted realm before changing
+live files. A journal holds both generations as ciphertext, without storing
+either passphrase or plaintext secret values. Store operations take a lock so
+another Maige process cannot access a partly rotated store.
+
+If rotation is interrupted, the next store command recovers automatically:
+
+- **Before commit:** all original encrypted files are restored; use the old passphrase.
+- **After commit:** all files use the new passphrase; only journal cleanup remains.
+- **If recovery fails:** Maige stops and retains the journal. Fix the reported
+  filesystem problem (such as a read-only file or full disk), then retry.
+
+Do not delete `.rotation.json` while recovery is pending, or remove `.lock` to
+clear a lock. The operating system releases locks when processes exit. Avoid
+running older Maige versions against the same store during rotation because
+they do not participate in locking or recovery. The encrypted realm format is
+unchanged; no migration is needed for existing stores.
 
 ## License
 

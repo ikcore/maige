@@ -137,10 +137,8 @@ fn cmd_var(sub: VarCommands, pre_pass: &Option<String>) -> Result<()> {
             let var = prompt::prompt_var_name(var)?;
             let value = prompt::prompt_var_value(value)?;
             let passphrase = get_passphrase(pre_pass)?;
-            let mut vars = match store::load_realm(&realm, &passphrase) {
-                Ok(v) => v,
-                Err(_) => BTreeMap::new(),
-            };
+            let mut vars = store::load_realm_if_exists(&realm, &passphrase)?
+                .unwrap_or_default();
             let is_update = vars.contains_key(&var);
             vars.insert(var.clone(), value);
             store::save_realm(&realm, &vars, &passphrase)?;
@@ -252,9 +250,9 @@ fn cmd_import(file: String, realm: Option<String>, require_existing: bool, conve
         return Ok(());
     }
 
-    let mut vars = match store::load_realm(&realm, &passphrase) {
-        Ok(v) => v,
-        Err(_) => {
+    let mut vars = match store::load_realm_if_exists(&realm, &passphrase)? {
+        Some(v) => v,
+        None => {
             if require_existing {
                 bail!("Realm '{}' does not exist (use without --require-existing to create it)", realm);
             }
@@ -290,7 +288,7 @@ fn cmd_import(file: String, realm: Option<String>, require_existing: bool, conve
         let maige_path = src_path.with_file_name(
             format!("{}.maige", src_path.file_name().unwrap_or_default().to_string_lossy()),
         );
-        std::fs::write(&maige_path, maige_lines.join("\n") + "\n")
+        crate::atomic_file::write(&maige_path, (maige_lines.join("\n") + "\n").as_bytes())
             .map_err(|e| anyhow::anyhow!("Failed to write '{}': {}", maige_path.display(), e))?;
         println!("Created {}", maige_path.display());
     }

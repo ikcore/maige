@@ -92,7 +92,8 @@ pub fn encrypt_to_file(
     path: &std::path::Path,
 ) -> Result<(), CryptoError> {
     let encoded = encrypt(plaintext, passphrase)?;
-    std::fs::write(path, encoded).map_err(|e| CryptoError::Encryption(e.to_string()))?;
+    crate::atomic_file::write(path, encoded.as_bytes())
+        .map_err(|e| CryptoError::Encryption(e.to_string()))?;
     Ok(())
 }
 

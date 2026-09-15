@@ -1,8 +1,8 @@
 [package]
 name = "maige"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-rust-version = "1.70"
+rust-version = "1.85"
 description = "A CLI tool for securely managing and injecting environment variables and secrets"
 license = "AGPL-3.0-only"
 authors = ["Ian Knowles"]
@@ -11,7 +11,7 @@ homepage = "https://github.com/ikcore/maige"
 readme = "README.md"
 keywords = ["env", "secrets", "encryption", "cli", "environment"]
 categories = ["command-line-utilities", "cryptography"]
-exclude = [".claude/", "CLAUDE.md", "tests/"]
+exclude = [".claude/", "CLAUDE.md", "tests/", ".github/"]
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
@@ -28,6 +28,9 @@ anyhow = "1"
 thiserror = "1"
 base64 = "0.22"
 regex = "1"
-
-[dev-dependencies]
 tempfile = "3"
+fs2 = "0.4"
+blake2 = "0.10"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
